@@ -1,4 +1,4 @@
-TOKEN = 'Here Goes Your Bot's Token'
+TOKEN = "Here Goes Your Bot's Token"
 
 '''
 NGROK_URL = ''
