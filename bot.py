@@ -1,13 +1,13 @@
 import logging
 from config import TOKEN
-
+from keyboards import main_keyboard
 from telegram.ext import CommandHandler, MessageHandler, Filters, Updater
 
 updater = Updater(token=TOKEN, use_context=True)
 
 
 def start(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Buenas")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Buenas", reply_markup=main_keyboard)
 
 
 def logger(update, context):
