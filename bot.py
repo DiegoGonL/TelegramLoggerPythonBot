@@ -1,19 +1,32 @@
 import logging
+
+from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler
+
 from config import TOKEN
 from keyboards import main_keyboard
-from telegram.ext import CommandHandler, MessageHandler, Filters, Updater
-from telegram import ChatAction
 
 updater = Updater(token=TOKEN, use_context=True)
 users_dni = {}
+MAIN, SETTINGS = range(2)
 
 
 def start(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Buenas", reply_markup=main_keyboard)
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Welcome, please check the settings")
+
+
+def ajustes(update, context):
+    print("Entro en ajustes")
+    update.message.reply_text(
+        text=update.effective_user.first_name + ", ¿QUE QUIERES HACER?",
+        reply_markup=main_keyboard)
+
+    return MAIN
 
 
 def logger(update, context):
-    if update.effective_chat.type != 'private':
+    if update.effective_chat.type == 'private':
 
         path = "logs/%s.txt" % update.effective_chat.id
 
@@ -44,28 +57,51 @@ def logger(update, context):
         f.close()
 
 
+def ret_settings(update, context):
+    print("Entro en retSettings")
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Write the new username",
+        reply_markup=main_keyboard)
+    return SETTINGS
+
+
 def change_username(update, context):
-    """
-    TODO: ConversationHandler in main to be able to receive the new username as update.message.text
-    """
-    users_dni["%s" % update.effective_user.username] = "NewUsername"
+    users_dni["%s" % update.effective_user.username] = update.message.text
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Your new username has been saved as %s" % update.message.text,
+        reply_markup=main_keyboard)
+    return MAIN
 
 
-def main():
+def exit_conv(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Salgo de la conver")
+    return ConversationHandler.END
+
+
+if __name__ == '__main__':
     """
     TODO: Save the users_dni dictionary in a file, charge it at the begging and update it each time change_username is accessed
     """
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     dispatcher = updater.dispatcher
-    start_handler = CommandHandler('start', start)
     logger_handler = MessageHandler(Filters.text & (~Filters.command), logger)
-    username_handler = CommandHandler('username', change_username)
 
-    dispatcher.add_handler(username_handler)
-    dispatcher.add_handler(start_handler)
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+
+        states={
+            MAIN: [MessageHandler(Filters.regex('Cambiar DNI'), ret_settings),
+                   MessageHandler(Filters.regex('^(Cambiar Nombre de Grupo)$'), ret_settings)],
+
+            SETTINGS: [MessageHandler(Filters.text, change_username)]
+        },
+
+        fallbacks=[MessageHandler(Filters.regex('^(Salir)$'), exit_conv)]
+    )
+
+    dispatcher.add_handler(conv_handler)
     dispatcher.add_handler(logger_handler)
     updater.start_polling()
     updater.idle()
-
-
-main()
