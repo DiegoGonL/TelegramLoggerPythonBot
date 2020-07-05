@@ -1,5 +1,5 @@
-TOKEN = "Here Goes Your Bot's Token"
-
+TOKEN = "1172796579:AAHjnigkbHKFIRvIEkK4F2727il-jOLI65g"
+LOGS_FOLDER ="logs/"
 '''
 NGROK_URL = ''
 BASE_TELEGRAM_URL = 'https://api.telegram.org/bot{}'.format(TOKEN)

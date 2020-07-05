@@ -1,34 +1,32 @@
 import logging
+import os
 
+from telegram import ReplyKeyboardRemove
 from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler
 
-from config import TOKEN
+from config import config
 from keyboards import main_keyboard
 
-updater = Updater(token=TOKEN, use_context=True)
+updater = Updater(token=config.TOKEN, use_context=True)
 users_dni = {}
-MAIN, SETTINGS = range(2)
+MAIN, CHANGE_USERNAME, DOWNLOAD_LOGS = range(3)
 
 
 def start(update, context):
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Welcome, please check the settings")
-
-
-def ajustes(update, context):
-    print("Entro en ajustes")
-    update.message.reply_text(
-        text=update.effective_user.first_name + ", ¿QUE QUIERES HACER?",
+        text="Welcome, please check the settings",
         reply_markup=main_keyboard)
 
     return MAIN
 
 
 def logger(update, context):
-    if update.effective_chat.type == 'private':
 
-        path = "logs/%s.txt" % update.effective_chat.id
+    if update.effective_chat.type != 'private':
+
+        path = config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id
 
         '''
         In case the folder 'logs' doesn't exists, you need to create it,
@@ -57,33 +55,82 @@ def logger(update, context):
         f.close()
 
 
-def ret_settings(update, context):
-    print("Entro en retSettings")
+def return_change_username(update, context):
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Write the new username",
-        reply_markup=main_keyboard)
-    return SETTINGS
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+    return CHANGE_USERNAME
+
+
+def return_download_logs(update, context):
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Write the name for your log file",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+    return DOWNLOAD_LOGS
 
 
 def change_username(update, context):
+
     users_dni["%s" % update.effective_user.username] = update.message.text
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Your new username has been saved as %s" % update.message.text,
-        reply_markup=main_keyboard)
+        reply_markup=main_keyboard
+    )
+
+    return MAIN
+
+
+def download_logs(update, context):
+
+    try:
+        context.bot.sendDocument(
+            chat_id=update.effective_chat.id,
+            document=open('logs/%s.txt' % update.effective_chat.id, 'rb'),
+            filename='%s.txt' % update.message.text,
+            reply_markup=main_keyboard
+        )
+
+    except FileNotFoundError:
+
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Your logs are empty",
+            reply_markup=main_keyboard
+        )
+
     return MAIN
 
 
 def exit_conv(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Salgo de la conver")
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Salgo de la conver",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
     return ConversationHandler.END
 
 
 if __name__ == '__main__':
-    """
+    '''
     TODO: Save the users_dni dictionary in a file, charge it at the begging and update it each time change_username is accessed
-    """
+    '''
+
+    try:
+        os.mkdir(config.LOGS_FOLDER)
+    except FileExistsError:
+        pass
+
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     dispatcher = updater.dispatcher
     logger_handler = MessageHandler(Filters.text & (~Filters.command), logger)
@@ -92,10 +139,12 @@ if __name__ == '__main__':
         entry_points=[CommandHandler('start', start)],
 
         states={
-            MAIN: [MessageHandler(Filters.regex('Cambiar DNI'), ret_settings),
-                   MessageHandler(Filters.regex('^(Cambiar Nombre de Grupo)$'), ret_settings)],
+            MAIN: [MessageHandler(Filters.regex('Cambiar username'), return_change_username),
+                   MessageHandler(Filters.regex('Descargar logs'), return_download_logs)],
 
-            SETTINGS: [MessageHandler(Filters.text, change_username)]
+            CHANGE_USERNAME: [MessageHandler(Filters.text & (~Filters.command), change_username)],
+
+            DOWNLOAD_LOGS: [MessageHandler(Filters.text & (~Filters.command), download_logs)]
         },
 
         fallbacks=[MessageHandler(Filters.regex('^(Salir)$'), exit_conv)]
