@@ -1,14 +1,15 @@
 import logging
 import os
 import keyboards
+import json
 
 from telegram import ReplyKeyboardRemove
 from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler
 from config import config
 
 
+dict_usernames = None
 updater = Updater(token=config.TOKEN, use_context=True)
-users_dni = {}
 MAIN, CHANGE_USERNAME, DOWNLOAD_LOGS, REMOVE_LOGS = range(4)
 
 
@@ -24,7 +25,7 @@ def start(update, context):
 
 def logger(update, context):
 
-    if update.effective_chat.type != 'private':
+    if update.effective_chat.type == 'private':
 
         path = config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id
 
@@ -46,8 +47,8 @@ def logger(update, context):
 
         else:
 
-            if update.effective_user.username in users_dni:
-                username = users_dni[update.effective_user.username]
+            if update.effective_user.username in dict_usernames:
+                username = dict_usernames[update.effective_user.username]
             else:
                 username = update.effective_user.username
 
@@ -103,7 +104,10 @@ def return_remove_logs(update, context):
 
 def change_username(update, context):
 
-    users_dni["%s" % update.effective_user.username] = update.message.text
+    dict_usernames["%s" % update.effective_user.username] = update.message.text
+    with open(config.USERNAME_FILE, 'w') as file:
+        json.dump(dict_usernames, file, sort_keys=True, indent=4)
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Your new username has been saved as %s" % update.message.text,
@@ -139,6 +143,12 @@ def remove_logs(update, context):
     try:
         os.remove(config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id)
 
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Your logs have been removed",
+            reply_markup=keyboards.get_main_keyboard()
+        )
+
     except FileNotFoundError:
 
         context.bot.send_message(
@@ -162,14 +172,23 @@ def exit_conv(update, context):
 
 
 if __name__ == '__main__':
-    '''
-    TODO: Save the users_dni dictionary in a file, charge it at the begging and update it each time change_username is accessed
-    '''
 
     try:
         os.mkdir(config.LOGS_FOLDER)
     except FileExistsError:
         pass
+
+    try:
+        with open(config.USERNAME_FILE, 'r') as dictionary:
+            if os.stat(config.USERNAME_FILE).st_size == 0:
+                dict_usernames = {}
+            else:
+                dict_usernames = json.load(dictionary)
+
+    except FileNotFoundError:
+        with open(config.USERNAME_FILE, 'w') as dictionary:
+            pass
+        dict_usernames = {}
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     dispatcher = updater.dispatcher
@@ -187,8 +206,8 @@ if __name__ == '__main__':
 
             DOWNLOAD_LOGS: [MessageHandler(Filters.text & (~Filters.command), download_logs)],
 
-            REMOVE_LOGS: [MessageHandler(Filters.regex('^(Si|No)$') & (~Filters.command), remove_logs),
-                          MessageHandler(Filters.regex('Salir') & (~Filters.command), return_main)]
+            REMOVE_LOGS: [MessageHandler(Filters.regex('^(Si)$') & (~Filters.command), remove_logs),
+                          MessageHandler(Filters.regex('^(Salir|No)$') & (~Filters.command), return_main)]
         },
 
         fallbacks=[MessageHandler(Filters.regex('^(Salir)$'), exit_conv)]
