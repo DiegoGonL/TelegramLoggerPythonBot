@@ -192,6 +192,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     dispatcher = updater.dispatcher
+
     logger_handler = MessageHandler(Filters.text & (~Filters.command), logger)
 
     conv_handler = ConversationHandler(

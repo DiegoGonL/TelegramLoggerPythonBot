@@ -1,5 +1,6 @@
 TOKEN = "Here Goes Your Token"
 LOGS_FOLDER = "logs/"
+USERNAME_FILE = "config/usernames.json"
 '''
 NGROK_URL = ''
 BASE_TELEGRAM_URL = 'https://api.telegram.org/bot{}'.format(TOKEN)
