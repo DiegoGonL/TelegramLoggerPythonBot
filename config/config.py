@@ -1,4 +1,4 @@
-TOKEN = "1172796579:AAHjnigkbHKFIRvIEkK4F2727il-jOLI65g"
+TOKEN = "Here Goes Your Token"
 LOGS_FOLDER ="logs/"
 '''
 NGROK_URL = ''
