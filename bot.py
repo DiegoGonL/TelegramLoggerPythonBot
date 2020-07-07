@@ -171,27 +171,7 @@ def exit_conv(update, context):
     return ConversationHandler.END
 
 
-if __name__ == '__main__':
-
-    try:
-        os.mkdir(config.LOGS_FOLDER)
-    except FileExistsError:
-        pass
-
-    try:
-        with open(config.USERNAME_FILE, 'r') as dictionary:
-            if os.stat(config.USERNAME_FILE).st_size == 0:
-                dict_usernames = {}
-            else:
-                dict_usernames = json.load(dictionary)
-
-    except FileNotFoundError:
-        with open(config.USERNAME_FILE, 'w') as dictionary:
-            pass
-        dict_usernames = {}
-
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-    dispatcher = updater.dispatcher
+def set_handlers(dispatcher):
 
     logger_handler = MessageHandler(Filters.text & (~Filters.command), logger)
 
@@ -216,5 +196,31 @@ if __name__ == '__main__':
 
     dispatcher.add_handler(conv_handler)
     dispatcher.add_handler(logger_handler)
+
+
+if __name__ == '__main__':
+
+    try:
+        os.mkdir(config.LOGS_FOLDER)
+    except FileExistsError:
+        pass
+
+    try:
+        with open(config.USERNAME_FILE, 'r') as dictionary:
+            if os.stat(config.USERNAME_FILE).st_size == 0:
+                dict_usernames = {}
+            else:
+                dict_usernames = json.load(dictionary)
+
+    except FileNotFoundError:
+        with open(config.USERNAME_FILE, 'w') as dictionary:
+            pass
+        dict_usernames = {}
+
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+    dp = updater.dispatcher
+    set_handlers(dispatcher=dp)
+
     updater.start_polling()
     updater.idle()
