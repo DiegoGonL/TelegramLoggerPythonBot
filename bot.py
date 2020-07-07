@@ -7,14 +7,12 @@ from telegram import ReplyKeyboardRemove
 from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler
 from config import config
 
-
 dict_usernames = None
 updater = Updater(token=config.TOKEN, use_context=True)
 MAIN, CHANGE_USERNAME, DOWNLOAD_LOGS, REMOVE_LOGS = range(4)
 
 
 def start(update, context):
-
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Welcome, please check the settings",
@@ -24,42 +22,42 @@ def start(update, context):
 
 
 def logger(update, context):
-
-    if update.effective_chat.type == 'private':
-
+    if update.effective_chat.type != 'private':
         path = config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id
 
-        '''
-        In case the folder 'logs' doesn't exists, you need to create it,
-        or change the path to wherever you want to save the logs 
-        '''
-
+        # In case the log file doesn't exists, it will be created
         try:
             f = open(path, "a")
         except FileNotFoundError:
             f = open(path, "w")
 
-        if update.effective_user.username is None:
-
-            update.message.reply_text(
-                text=update.effective_user.first_name + ', I need you to set a username in the telegram settings'
+        if (update.effective_user.username is None) & (str(update.effective_user.id) not in dict_usernames):
+            context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text=update.effective_user.first_name +
+                ", you don't have neither a telegram username, nor a username set in this bot"
+                " so i will use your user id. Please, set an username in the Telegram settings"
+                " or using /start and selecting change username, otherwise"
             )
 
+            username = str(update.effective_user.id)
+
+        elif update.effective_user.username in dict_usernames:
+            username = dict_usernames[update.effective_user.username]
+
+        elif str(update.effective_user.id) in dict_usernames:
+            username = dict_usernames[str(update.effective_user.id)]
+
         else:
+            username = update.effective_user.username
 
-            if update.effective_user.username in dict_usernames:
-                username = dict_usernames[update.effective_user.username]
-            else:
-                username = update.effective_user.username
-
-            f.write("[" + update.message.date.strftime("%d/%m/%Y, %H:%M:%S") + "] " +
-                    username + ": " + update.message.text + "\n")
+        f.write("[" + update.message.date.strftime("%d/%m/%Y, %H:%M:%S") + "] " +
+                username + ": " + update.message.text + "\n")
 
         f.close()
 
 
 def return_main(update, context):
-
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="What do you want to do?",
@@ -70,7 +68,6 @@ def return_main(update, context):
 
 
 def return_change_username(update, context):
-
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Write the new username",
@@ -81,7 +78,6 @@ def return_change_username(update, context):
 
 
 def return_download_logs(update, context):
-
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Write the name for your log file",
@@ -92,7 +88,6 @@ def return_download_logs(update, context):
 
 
 def return_remove_logs(update, context):
-
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Are you sure you want to remove the logs, this action cant be undone",
@@ -103,8 +98,8 @@ def return_remove_logs(update, context):
 
 
 def change_username(update, context):
+    dict_usernames["%s" % str(update.effective_user.id)] = update.message.text
 
-    dict_usernames["%s" % update.effective_user.username] = update.message.text
     with open(config.USERNAME_FILE, 'w') as file:
         json.dump(dict_usernames, file, sort_keys=True, indent=4)
 
@@ -118,7 +113,6 @@ def change_username(update, context):
 
 
 def download_logs(update, context):
-
     try:
         context.bot.sendDocument(
             chat_id=update.effective_chat.id,
@@ -139,7 +133,6 @@ def download_logs(update, context):
 
 
 def remove_logs(update, context):
-
     try:
         os.remove(config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id)
 
@@ -161,7 +154,6 @@ def remove_logs(update, context):
 
 
 def exit_conv(update, context):
-
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="See you next time!",
@@ -172,7 +164,6 @@ def exit_conv(update, context):
 
 
 def set_handlers(dispatcher):
-
     logger_handler = MessageHandler(Filters.text & (~Filters.command), logger)
 
     conv_handler = ConversationHandler(
