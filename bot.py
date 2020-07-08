@@ -3,7 +3,7 @@ import os
 import keyboards
 import json
 
-from telegram import ReplyKeyboardRemove
+from telegram import ReplyKeyboardRemove, TelegramError
 from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler
 from config import config
 
@@ -58,16 +58,24 @@ def logger(update, context):
 
 
 def bot_description(update, context):
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Here you have a short description of what this bot can do:\n\n"
-             "Use /start to access the full functionality of this bot.\n"
-             "None of the answers to the bot will be saved in the logs, neither the bot messages\n\n"
-             "- If you add me to a group chat, I will register the messages that are sent to that group, never private conversations like this one\n\n"
-             "- You can change the name that will be reflected in the logs\n\n"
-             "- You can ask me to send your log file with any file name that you give me\n\n"
-             "- You can delete your logs any time (THIS ACTION CANT BE UNDONE)"
-    )
+
+    try:
+        context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="Here you have a short description of what this bot can do:\n\n"
+                 "Use /start to access the full functionality of this bot.\n"
+                 "None of the answers to the bot will be saved in the logs, neither the bot messages\n\n"
+                 "- If you add me to a group chat, I will register the messages that are sent to that group, never private conversations like this one\n\n"
+                 "- You can change the name that will be reflected in the logs\n\n"
+                 "- You can ask me to send your log file with any file name that you give me\n\n"
+                 "- You can delete your logs any time (THIS ACTION CANT BE UNDONE)")
+
+    except TelegramError:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Please start the private conversation with me.",
+            reply_to_message_id=update.message.message_id
+        )
 
 
 def return_main(update, context):
@@ -206,7 +214,9 @@ def set_handlers(dispatcher):
 
 
 if __name__ == '__main__':
-
+    """
+    TODO: Language Selector and user info buttons 
+    """
     try:
         os.mkdir(config.LOGS_FOLDER)
     except FileExistsError:
