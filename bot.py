@@ -57,6 +57,19 @@ def logger(update, context):
         f.close()
 
 
+def bot_description(update, context):
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Here you have a short description of what this bot can do:\n\n"
+             "Use /start to access the full functionality of this bot.\n"
+             "None of the answers to the bot will be saved in the logs, neither the bot messages\n\n"
+             "- If you add me to a group chat, I will register the messages that are sent to that group, never private conversations like this one\n\n"
+             "- You can change the name that will be reflected in the logs\n\n"
+             "- You can ask me to send your log file with any file name that you give me\n\n"
+             "- You can delete your logs any time (THIS ACTION CANT BE UNDONE)"
+    )
+
+
 def return_main(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -90,7 +103,7 @@ def return_download_logs(update, context):
 def return_remove_logs(update, context):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Are you sure you want to remove the logs, this action cant be undone",
+        text="Are you sure you want to remove the logs, THIS ACTION CANT BE UNDONE",
         reply_markup=keyboards.get_yes_no_keyboard()
     )
 
@@ -166,26 +179,29 @@ def exit_conv(update, context):
 def set_handlers(dispatcher):
     logger_handler = MessageHandler(Filters.text & (~Filters.command), logger)
 
+    help_handler = CommandHandler('help', bot_description)
+
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
 
         states={
-            MAIN: [MessageHandler(Filters.regex('Cambiar username'), return_change_username),
-                   MessageHandler(Filters.regex('Descargar Logs'), return_download_logs),
-                   MessageHandler(Filters.regex('Borrar Logs'), return_remove_logs)],
+            MAIN: [MessageHandler(Filters.regex('Change username'), return_change_username),
+                   MessageHandler(Filters.regex('Download Logs'), return_download_logs),
+                   MessageHandler(Filters.regex('Delete Logs'), return_remove_logs)],
 
             CHANGE_USERNAME: [MessageHandler(Filters.text & (~Filters.command), change_username)],
 
             DOWNLOAD_LOGS: [MessageHandler(Filters.text & (~Filters.command), download_logs)],
 
-            REMOVE_LOGS: [MessageHandler(Filters.regex('^(Si)$') & (~Filters.command), remove_logs),
-                          MessageHandler(Filters.regex('^(Salir|No)$') & (~Filters.command), return_main)]
+            REMOVE_LOGS: [MessageHandler(Filters.regex('^(Yes)$') & (~Filters.command), remove_logs),
+                          MessageHandler(Filters.regex('^(Go Back|No)$') & (~Filters.command), return_main)]
         },
 
-        fallbacks=[MessageHandler(Filters.regex('^(Salir)$'), exit_conv)]
+        fallbacks=[MessageHandler(Filters.regex('^(Exit)$'), exit_conv)]
     )
 
     dispatcher.add_handler(conv_handler)
+    dispatcher.add_handler(help_handler)
     dispatcher.add_handler(logger_handler)
 
 
