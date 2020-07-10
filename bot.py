@@ -4,7 +4,7 @@ import keyboards
 import json
 
 from telegram import ReplyKeyboardRemove, TelegramError
-from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler
+from telegram.ext import CommandHandler, MessageHandler, Filters, Updater, ConversationHandler, CallbackQueryHandler
 from config import config
 
 dict_usernames = None
@@ -13,6 +13,11 @@ MAIN, CHANGE_USERNAME, DOWNLOAD_LOGS, REMOVE_LOGS = range(4)
 
 
 def start(update, context):
+    context.bot.delete_message(
+        chat_id=update.message.chat.id,
+        message_id=update.message.message_id
+    )
+
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Welcome, please check the settings",
@@ -56,9 +61,14 @@ def logger(update, context):
 
         f.close()
 
+    else:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="I cant log private messages"
+        )
+
 
 def bot_description(update, context):
-
     try:
         context.bot.send_message(
             chat_id=update.effective_user.id,
@@ -86,6 +96,24 @@ def return_main(update, context):
     )
 
     return MAIN
+
+
+def main_callback(update, context):
+    q = update.callback_query.data
+
+    context.bot.delete_message(
+        chat_id=update.callback_query.message.chat.id,
+        message_id=update.callback_query.message.message_id
+    )
+
+    if q == 'Change username':
+        return return_change_username(update, context)
+    elif q == 'Download Logs':
+        return return_download_logs(update, context)
+    elif q == 'Delete Logs':
+        return return_remove_logs(update, context)
+    else:
+        return exit_conversation(update, context)
 
 
 def return_change_username(update, context):
@@ -118,6 +146,20 @@ def return_remove_logs(update, context):
     return REMOVE_LOGS
 
 
+def remove_logs_callback(update, context):
+    q = update.callback_query.data
+
+    context.bot.delete_message(
+        chat_id=update.callback_query.message.chat.id,
+        message_id=update.callback_query.message.message_id
+    )
+
+    if q == 'Yes':
+        return remove_logs(update, context)
+    else:
+        return return_main(update, context)
+
+
 def change_username(update, context):
     dict_usernames["%s" % str(update.effective_user.id)] = update.message.text
 
@@ -126,61 +168,71 @@ def change_username(update, context):
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Your new username has been saved as %s" % update.message.text,
-        reply_markup=keyboards.get_main_keyboard()
+        text="Your new username has been saved as %s" % update.message.text
     )
 
-    return MAIN
+    return return_main(update, context)
 
 
 def download_logs(update, context):
-    try:
-        context.bot.sendDocument(
-            chat_id=update.effective_chat.id,
-            document=open('logs/%s.txt' % update.effective_chat.id, 'rb'),
-            filename='%s.txt' % update.message.text,
-            reply_markup=keyboards.get_main_keyboard()
-        )
 
-    except FileNotFoundError:
+    if update.effective_chat.type != "private":
+        try:
+            context.bot.sendDocument(
+                chat_id=update.effective_chat.id,
+                document=open('logs/%s.txt' % update.effective_chat.id, 'rb'),
+                filename='%s.txt' % update.message.text
+            )
 
+        except FileNotFoundError:
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Your logs are empty"
+            )
+
+    else:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Your logs are empty",
-            reply_markup=keyboards.get_main_keyboard()
+            text="I cant log private chats"
         )
 
-    return MAIN
+    return return_main(update, context)
 
 
 def remove_logs(update, context):
-    try:
-        os.remove(config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id)
+    if update.effective_chat.type != "private":
+        try:
+            os.remove(config.LOGS_FOLDER + "%s.txt" % update.effective_chat.id)
 
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Your logs have been removed"
+            )
+
+        except FileNotFoundError:
+
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Your logs are empty"
+            )
+
+    else:
         context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Your logs have been removed",
-            reply_markup=keyboards.get_main_keyboard()
+            text="I cant log private chats"
         )
 
-    except FileNotFoundError:
-
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Your logs are empty",
-            reply_markup=keyboards.get_main_keyboard()
-        )
-
-    return MAIN
+    return return_main(update, context)
 
 
-def exit_conv(update, context):
+def exit_conversation(update, context):
+    """
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="See you next time!",
         reply_markup=ReplyKeyboardRemove()
     )
-
+    """
     return ConversationHandler.END
 
 
@@ -193,19 +245,16 @@ def set_handlers(dispatcher):
         entry_points=[CommandHandler('start', start)],
 
         states={
-            MAIN: [MessageHandler(Filters.regex('Change username'), return_change_username),
-                   MessageHandler(Filters.regex('Download Logs'), return_download_logs),
-                   MessageHandler(Filters.regex('Delete Logs'), return_remove_logs)],
+            MAIN: [CallbackQueryHandler(main_callback)],
 
             CHANGE_USERNAME: [MessageHandler(Filters.text & (~Filters.command), change_username)],
 
             DOWNLOAD_LOGS: [MessageHandler(Filters.text & (~Filters.command), download_logs)],
 
-            REMOVE_LOGS: [MessageHandler(Filters.regex('^(Yes)$') & (~Filters.command), remove_logs),
-                          MessageHandler(Filters.regex('^(Go Back|No)$') & (~Filters.command), return_main)]
+            REMOVE_LOGS: [CallbackQueryHandler(remove_logs_callback)]
         },
 
-        fallbacks=[MessageHandler(Filters.regex('^(Exit)$'), exit_conv)]
+        fallbacks=[MessageHandler(Filters.regex('^(Exit)$'), exit_conversation)]
     )
 
     dispatcher.add_handler(conv_handler)
